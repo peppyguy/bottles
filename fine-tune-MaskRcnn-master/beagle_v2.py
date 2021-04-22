@@ -1,11 +1,10 @@
 """
 Mask R-CNN
-Train on the toy Balloon dataset and implement color splash effect.
+Train on the toy bottle dataset and implement color splash effect.
 
 Copyright (c) 2018 Matterport, Inc.
 Licensed under the MIT License (see LICENSE for details)
 Written by Waleed Abdulla
-Edited for general application by Soumya Yadav (Psoumyadav@gmail.com)
 
 ------------------------------------------------------------
 
@@ -13,19 +12,19 @@ Usage: import the module (see Jupyter notebooks for examples), or run from
        the command line as such:
 
     # Train a new model starting from pre-trained COCO weights
-    python3 balloon.py train --dataset=/path/to/balloon/dataset --weights=coco
+    python3 beagle.py train --dataset=path/to/dataset --weights=coco
 
     # Resume training a model that you had trained earlier
-    python3 balloon.py train --dataset=/path/to/balloon/dataset --weights=last
+    python3 beagle.py train --dataset=/path/to/dataset --weights=last
 
     # Train a new model starting from ImageNet weights
-    python3 balloon.py train --dataset=/path/to/balloon/dataset --weights=imagenet
+    python3 beagle.py train --dataset=/path/to/dataset --weights=imagenet
 
     # Apply color splash to an image
-    python3 balloon.py splash --weights=/path/to/weights/file.h5 --image=<URL or path to file>
+    python3 beagle.py splash --weights=/path/to/weights/file.h5 --image=<URL or path to file>
 
     # Apply color splash to video using the last weights you trained
-    python3 balloon.py splash --weights=last --video=<URL or path to file>
+    python3 beagle.py splash --weights=last --video=<URL or path to file>
 """
 
 import os
@@ -34,14 +33,17 @@ import json
 import datetime
 import numpy as np
 import skimage.draw
+import cv2
+from Mask_RCNN.mrcnn.visualize import display_instances
+import matplotlib.pyplot as plt
 
 # Root directory of the project
-ROOT_DIR = os.path.abspath("../../")
+ROOT_DIR = os.path.abspath("../")
 
 # Import Mask RCNN
 sys.path.append(ROOT_DIR)  # To find local version of the library
-from mrcnn.config import Config
-from mrcnn import model as modellib, utils
+from Mask_RCNN.mrcnn.config import Config
+from Mask_RCNN.mrcnn import model as modellib, utils
 
 # Path to trained weights file
 COCO_WEIGHTS_PATH = os.path.join(ROOT_DIR, "mask_rcnn_coco.h5")
@@ -55,8 +57,8 @@ DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
 ############################################################
 
 
-class beagleConfig(Config):
-    """Configuration for training on the beagle dataset.
+class CustomConfig(Config):
+    """Configuration for training on the toy  dataset.
     Derives from the base Config class and overrides some values.
     """
     # Give the configuration a recognizable name
@@ -67,7 +69,7 @@ class beagleConfig(Config):
     IMAGES_PER_GPU = 2
 
     # Number of classes (including background)
-    NUM_CLASSES = 1 + 4  # Background + number of classes (Here, 2)
+    NUM_CLASSES = 1 + 9  # Background + beagle
 
     # Number of training steps per epoch
     STEPS_PER_EPOCH = 100
@@ -80,32 +82,30 @@ class beagleConfig(Config):
 #  Dataset
 ############################################################
 
-class beagleDataset(utils.Dataset):
+class CustomDataset(utils.Dataset):
 
-    def load_beagle(self, dataset_dir, subset):
-        """Load a subset of the beagle dataset.
+    def load_custom(self, dataset_dir, subset):
+        """Load the beagle dataset.
         dataset_dir: Root directory of the dataset.
         subset: Subset to load: train or val
         """
-        # Add classes according to the numbe of classes required to detect
-        #self.add_class("beagle", 1, "object1")
-        #self.add_class("beagle",2,"object2")
+        # Add classes. We have only one class to add.
         self.add_class("beagle", 1, "1_1_bottle")
         self.add_class("beagle", 2, "1_2_cap")
         self.add_class("beagle", 3, "1_3_cap")
-        #self.add_class("beagle", 4, "2_1_bottle")
-        #self.add_class("beagle", 5, "2_2_cap")
-        #self.add_class("beagle", 6, "2_3_cap")
+        self.add_class("beagle", 4, "2_1_bottle")
+        self.add_class("beagle", 5, "2_2_cap")
+        self.add_class("beagle", 6, "2_3_cap")
         self.add_class("beagle", 7, "3_1_bottle")
-        #self.add_class("beagle", 8, "3_2_cap")
-        #self.add_class("beagle", 9, "3_3_cap")
+        self.add_class("beagle", 8, "3_2_cap")
+        self.add_class("beagle", 9, "3_3_cap")
 
         # Train or validation dataset?
         assert subset in ["train", "val"]
         dataset_dir = os.path.join(dataset_dir, subset)
 
         # Load annotations
-        # VGG Image Annotator (up to version 1.6) saves each image in the form:
+        # VGG Image Annotator saves each image in the form:
         # { 'filename': '28503151_5b5b7ec140_b.jpg',
         #   'regions': {
         #       '0': {
@@ -119,56 +119,126 @@ class beagleDataset(utils.Dataset):
         #   'size': 100202
         # }
         # We mostly care about the x and y coordinates of each region
-        # Note: In VIA 2.0, regions was changed from a dict to a list.
-        annotations = json.load(open(os.path.join(dataset_dir, "via_region_data.json")))
-        annotations = list(annotations.values())  # don't need the dict keys
+        annotations1 = json.load(open(os.path.join(dataset_dir, "via_region_data.json")))
+        # print(annotations1)
+        annotations = list(annotations1.values())  # don't need the dict keys
 
         # The VIA tool saves images in the JSON even if they don't have any
         # annotations. Skip unannotated images.
         annotations = [a for a in annotations if a['regions']]
+        # for multiple objects @sree
+        # for k in annotations:
+        #   name_dict = {"1_1_bottle": 1,"1_2_cap": 2,"1_3_cap": 3,"2_1_bottle": 4,"2_2_cap": 5,"2_3_cap": 6,"3_1_bottle": 7,"3_2_cap": 8,"3_3_cap": 9}    #print(name_dict)          
+        #   print('file_name:',k['filename'])
+        #   poly_count = len([r['shape_attributes'] for r in k['regions']])
+        #   if poly_count == 1:
+        #     polygons = [r['shape_attributes'] for r in k['regions']]
+            
+        #     print('poly:',polygons)
+        #     beagles = [s['region_attributes']['object'] for s in k['regions']]
+        #     for a in beagles:
+        #   #    print('beagles',beagles)
+        #   #    if beagles != ap and beagles != ap2 and beagles != ap3 and beagles != ap4 :
+        #       try:           
+        #           print('beangles:',beagles)
+        #           print(name_dict[str(beagles)[2:-2]])
+        #           num_ids = name_dict[str(beagles)[2:-2]]
 
-        # Add images
+        #       except KeyError:
+        #         continue
+        
+        #   if poly_count == 2:
+        #     for i in range(poly_count):
+
+        #       polygons = [r['shape_attributes'] for r in k['regions']]
+              
+        #       print('poly 1:',polygons)
+        #       beagles = [s['region_attributes']['object'] for s in k['regions']]
+        #       try:
+        #         print('beagles:',beagles[i])
+        #         print(name_dict[beagles[i]])
+        #         num_ids = name_dict[beagles[i]]
+
+        #       except KeyError:
+        #         continue
+        #   if poly_count == 3:
+        #     for i in range(poly_count):
+
+        #       polygons = [r['shape_attributes'] for r in k['regions']]
+              
+        #       print('poly 1:',polygons)
+        #       beagles = [s['region_attributes']['object'] for s in k['regions']]
+        #       try:
+        #         print('beagles:',beagles[i])
+        #         print(name_dict[beagles[i]])
+        #         num_ids = name_dict[beagles[i]]
+
+        #       except KeyError:
+        #         continue
+        #   image_path = os.path.join(dataset_dir, k['filename'])
+        #   image = skimage.io.imread(image_path)
+        #   height, width = image.shape[:2]
+        #   print('heigh',height)
+        #   self.add_image(
+        #       "beagle",  ## for a single class just add the name here
+        #       image_id=k['filename'],  # use file name as a unique image id
+        #       path=image_path,
+        #       width=width, height=height,
+        #       polygons=polygons,
+        #       num_ids=num_ids)        
+
+
+
+
+        # Add images original...............
         for a in annotations:
+            # print(a)
             # Get the x, y coordinaets of points of the polygons that make up
-            # the outline of each object instance. These are stores in the
+            # the outline of each object instance. There are stores in the
             # shape_attributes (see json format above)
-            # The if condition is needed to support VIA versions 1.x and 2.x.
-            polygons = [r['shape_attributes'] for r in a['regions']]#.values()]
+            polygons = [r['shape_attributes'] for r in a['regions'].values()]
             #labelling each class in the given image to a number
 
-            beagle = [s['region_attributes'] for s in a['regions']]#.values()]
+            beagles = [s['region_attributes'] for s in a['regions'].values()]
             
             num_ids=[]
             #Add the classes according to the requirement
-            for n in beagle:
+            for n in beagles:
                 try:
-                    #if n['label']=='object1':
-                    #    num_ids.append(1)
-                    #elif n['label']=='object2':
-                    #    num_ids.append(2)
-                    if n['object']=='1_1_bottle':
-                      num_ids.append(1)
-                    elif n['object']=='1_2_cap':
-                      num_ids.append(2)
-                    elif n['object']=='1_3_cap':
-                      num_ids.append(3)
-                    elif n['object']=='2_1_bottle':
-                      num_ids.append(4)
-                    elif n['object']=='2_2_cap':
-                      num_ids.append(5)
-                    elif n['object']=='2_2_cap':
-                      num_ids.append(6)
-                    elif n['object']=='3_1_bottle':
-                      num_ids.append(7)
-                    elif n['object']=='3_2_cap':
-                      num_ids.append(8)
-                    elif n['object']=='3_3_cap':
-                      num_ids.append(9)
+                    if n['label']=='1_1_bottle':
+                        num_ids.append(1)
+                    elif n['label']=='1_2_cap':
+                        num_ids.append(2)
+                    elif n['label']=='1_3_cap':
+                        num_ids.append(3)
+                    elif n['label']=='2_1_bottle':
+                        num_ids.append(4)
+                    elif n['label']=='2_2_cap':
+                        num_ids.append(5)
+                    elif n['label']=='2_2_cap':
+                        num_ids.append(6)
+                    elif n['label']=='3_1_bottle':
+                        num_ids.append(7)
+                    elif n['label']=='3_2_cap':
+                        num_ids.append(8)
+                    elif n['label']=='3_3_cap':
+                        num_ids.append()
                 except:
                     pass
             print('poly:',polygons)
-            print('beangles:',beagle)
-            print('num Id:',num_ids)
+            #polygons = [r['shape_attributes'] for r in a['regions']]
+            #beagles = [s['region_attributes']['object'] for s in a['regions']]
+            #print("beagles:",beagles)
+            #name_dict = {"1_1_bottle": 1,"1_2_cap": 2,"1_3_cap": 3,"2_1_bottle": 4,"2_2_cap": 5,"2_3_cap": 6,"3_1_bottle": 7,"3_2_cap": 8,"3_3_cap": 9}
+            ## key = tuple(name_dict)
+            #if len(beagles) ==1:
+            #  num_ids = [name_dict[str(beagles)[2:-2]] for a in beagles if beagles not in [[''],['\n']] ]
+            #if len(beagles) == 2:
+            #  print('poly:',polygons)
+            #  num_ids = [name_dict[str([beagles[0]])[2:-2]] for a in beagles if beagles not in [[''],['\n']] ] 
+            ##num_ids = [name_dict[beagles] for a in beagles]
+            ##num_ids = name_dict[beagles]# for a in beagles]
+            print("numids",num_ids)
             # load_mask() needs the image size to convert polygons to masks.
             # Unfortunately, VIA doesn't include it in JSON, so we must read
             # the image. This is only managable since the dataset is tiny.
@@ -177,7 +247,7 @@ class beagleDataset(utils.Dataset):
             height, width = image.shape[:2]
 
             self.add_image(
-                "beagle",
+                "beagle",  ## for a single class just add the name here
                 image_id=a['filename'],  # use file name as a unique image id
                 path=image_path,
                 width=width, height=height,
@@ -195,12 +265,13 @@ class beagleDataset(utils.Dataset):
         image_info = self.image_info[image_id]
         if image_info["source"] != "beagle":
             return super(self.__class__, self).load_mask(image_id)
-        num_ids = image_info['num_ids']	
-        #print("Here is the numID",num_ids)
 
         # Convert polygons to a bitmap mask of shape
         # [height, width, instance_count]
         info = self.image_info[image_id]
+        if info["source"] != "beagle":
+            return super(self.__class__, self).load_mask(image_id)
+        num_ids = info['num_ids']
         mask = np.zeros([info["height"], info["width"], len(info["polygons"])],
                         dtype=np.uint8)
         for i, p in enumerate(info["polygons"]):
@@ -210,8 +281,8 @@ class beagleDataset(utils.Dataset):
 
         # Return mask, and array of class IDs of each instance. Since we have
         # one class ID only, we return an array of 1s
-        num_ids = np.array(num_ids, dtype=np.int32)	
-        return mask, num_ids#.astype(np.bool), np.ones([mask.shape[-1]], dtype=np.int32), 
+        num_ids = np.array(num_ids, dtype=np.int32)
+        return mask.astype(np.bool), num_ids #np.ones([mask.shape[-1]], dtype=np.int32)
 
     def image_reference(self, image_id):
         """Return the path of the image."""
@@ -225,13 +296,13 @@ class beagleDataset(utils.Dataset):
 def train(model):
     """Train the model."""
     # Training dataset.
-    dataset_train = beagleDataset()
-    dataset_train.load_beagle(args.dataset, "train")
+    dataset_train = CustomDataset()
+    dataset_train.load_custom(args.dataset, "train")
     dataset_train.prepare()
 
     # Validation dataset
-    dataset_val = beagleDataset()
-    dataset_val.load_beagle(args.dataset, "val")
+    dataset_val = CustomDataset()
+    dataset_val.load_custom(args.dataset, "val")
     dataset_val.prepare()
 
     # *** This training schedule is an example. Update to your needs ***
@@ -241,7 +312,7 @@ def train(model):
     print("Training network heads")
     model.train(dataset_train, dataset_val,
                 learning_rate=config.LEARNING_RATE,
-                epochs=3,
+                epochs=15,
                 layers='heads')
 
 
@@ -255,13 +326,13 @@ def color_splash(image, mask):
     # Make a grayscale copy of the image. The grayscale copy still
     # has 3 RGB channels, though.
     gray = skimage.color.gray2rgb(skimage.color.rgb2gray(image)) * 255
+    # We're treating all instances as one, so collapse the mask into one layer
+    mask = (np.sum(mask, -1, keepdims=True) >= 1)
     # Copy color pixels from the original color image where mask is set
-    if mask.shape[-1] > 0:
-        # We're treating all instances as one, so collapse the mask into one layer
-        mask = (np.sum(mask, -1, keepdims=True) >= 1)
+    if mask.shape[0] > 0:
         splash = np.where(mask, image, gray).astype(np.uint8)
     else:
-        splash = gray.astype(np.uint8)
+        splash = gray
     return splash
 
 
@@ -316,7 +387,6 @@ def detect_and_color_splash(model, image_path=None, video_path=None):
         vwriter.release()
     print("Saved to ", file_name)
 
-
 ############################################################
 #  Training
 ############################################################
@@ -326,13 +396,13 @@ if __name__ == '__main__':
 
     # Parse command line arguments
     parser = argparse.ArgumentParser(
-        description='Train Mask R-CNN to detect beagle objects.')
+        description='Train Mask R-CNN to detect custom class.')
     parser.add_argument("command",
                         metavar="<command>",
                         help="'train' or 'splash'")
     parser.add_argument('--dataset', required=False,
-                        metavar="/path/to/beagle/dataset/",
-                        help='Directory of the beagle dataset')
+                        metavar="/path/to/custom/dataset/",
+                        help='Directory of the custom dataset')
     parser.add_argument('--weights', required=True,
                         metavar="/path/to/weights.h5",
                         help="Path to weights .h5 file or 'coco'")
@@ -361,13 +431,13 @@ if __name__ == '__main__':
 
     # Configurations
     if args.command == "train":
-        config = beagleConfig()
+        config = CustomConfig()
     else:
-        class InferenceConfig(beagleConfig):
+        class InferenceConfig(CustomConfig):
             # Set batch size to 1 since we'll be running inference on
             # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
-            GPU_COUNT = 1
-            IMAGES_PER_GPU = 1
+            GPU_COUNT = 4
+            IMAGES_PER_GPU = 2
         config = InferenceConfig()
     config.display()
 
@@ -380,18 +450,14 @@ if __name__ == '__main__':
                                   model_dir=args.logs)
 
     # Select weights file to load
-    if args.weights.lower() == "new":	
-        print("weight path entered")	
-        print(NEW_WEIGHTS_PATH)	
-        weights_path = NEW_WEIGHTS_PATH
     if args.weights.lower() == "coco":
         weights_path = COCO_WEIGHTS_PATH
-        # Download weights file
+        # Download we ights file
         if not os.path.exists(weights_path):
             utils.download_trained_weights(weights_path)
     elif args.weights.lower() == "last":
         # Find last trained weights
-        weights_path = model.find_last()
+        weights_path = model.find_last()[1]
     elif args.weights.lower() == "imagenet":
         # Start from ImageNet trained weights
         weights_path = model.get_imagenet_weights()
