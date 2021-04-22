@@ -141,6 +141,7 @@ class CustomDataset(utils.Dataset):
             num_ids = [name_dict[beagles] for a in beagles]
             #num_ids = name_dict[beagles]# for a in beagles]
             print("numids",num_ids)
+            print("numid: type",type(num_ids))
             # load_mask() needs the image size to convert polygons to masks.
             # Unfortunately, VIA doesn't include it in JSON, so we must read
             # the image. This is only managable since the dataset is tiny.
