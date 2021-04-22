@@ -55,7 +55,7 @@ DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
 ############################################################
 
 
-class beagleConfig(Config):
+class CustomConfig(Config):
     """Configuration for training on the beagle dataset.
     Derives from the base Config class and overrides some values.
     """
@@ -80,9 +80,9 @@ class beagleConfig(Config):
 #  Dataset
 ############################################################
 
-class beagleDataset(utils.Dataset):
+class CustomDataset(utils.Dataset):
 
-    def load_beagle(self, dataset_dir, subset):
+    def load_custom(self, dataset_dir, subset):
         """Load a subset of the beagle dataset.
         dataset_dir: Root directory of the dataset.
         subset: Subset to load: train or val
@@ -211,7 +211,7 @@ class beagleDataset(utils.Dataset):
         # Return mask, and array of class IDs of each instance. Since we have
         # one class ID only, we return an array of 1s
         num_ids = np.array(num_ids, dtype=np.int32)	
-        return mask, num_ids#.astype(np.bool), np.ones([mask.shape[-1]], dtype=np.int32), 
+        return mask.astype, num_ids#.astype(np.bool), np.ones([mask.shape[-1]], dtype=np.int32), 
 
     def image_reference(self, image_id):
         """Return the path of the image."""
@@ -225,13 +225,13 @@ class beagleDataset(utils.Dataset):
 def train(model):
     """Train the model."""
     # Training dataset.
-    dataset_train = beagleDataset()
-    dataset_train.load_beagle(args.dataset, "train")
+    dataset_train = CustomDataset()
+    dataset_train.load_custom(args.dataset, "train")
     dataset_train.prepare()
 
     # Validation dataset
-    dataset_val = beagleDataset()
-    dataset_val.load_beagle(args.dataset, "val")
+    dataset_val = CustomDataset()
+    dataset_val.load_custom(args.dataset, "val")
     dataset_val.prepare()
 
     # *** This training schedule is an example. Update to your needs ***
@@ -326,13 +326,13 @@ if __name__ == '__main__':
 
     # Parse command line arguments
     parser = argparse.ArgumentParser(
-        description='Train Mask R-CNN to detect beagle objects.')
+        description='Train Mask R-CNN to detect custom objects.')
     parser.add_argument("command",
                         metavar="<command>",
                         help="'train' or 'splash'")
     parser.add_argument('--dataset', required=False,
-                        metavar="/path/to/beagle/dataset/",
-                        help='Directory of the beagle dataset')
+                        metavar="/path/to/custom/dataset/",
+                        help='Directory of the custom dataset')
     parser.add_argument('--weights', required=True,
                         metavar="/path/to/weights.h5",
                         help="Path to weights .h5 file or 'coco'")
@@ -361,9 +361,9 @@ if __name__ == '__main__':
 
     # Configurations
     if args.command == "train":
-        config = beagleConfig()
+        config = CustomConfig()
     else:
-        class InferenceConfig(beagleConfig):
+        class InferenceConfig(CustomConfig):
             # Set batch size to 1 since we'll be running inference on
             # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
             GPU_COUNT = 1
