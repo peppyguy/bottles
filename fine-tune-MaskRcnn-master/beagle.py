@@ -80,7 +80,7 @@ class CustomConfig(Config):
 #  Dataset
 ############################################################
 
-class beagleDataset(utils.Dataset):
+class CustomConfig(utils.Dataset):
 
     def load_beagle(self, dataset_dir, subset):
         """Load a subset of the beagle dataset.
@@ -326,12 +326,12 @@ if __name__ == '__main__':
 
     # Parse command line arguments
     parser = argparse.ArgumentParser(
-        description='Train Mask R-CNN to detect beagle objects.')
+        description='Train Mask R-CNN to detect custom objects.')
     parser.add_argument("command",
                         metavar="<command>",
                         help="'train' or 'splash'")
     parser.add_argument('--dataset', required=False,
-                        metavar="/path/to/beagle/dataset/",
+                        metavar="/path/to/custom/dataset/",
                         help='Directory of the beagle dataset')
     parser.add_argument('--weights', required=True,
                         metavar="/path/to/weights.h5",
@@ -361,9 +361,9 @@ if __name__ == '__main__':
 
     # Configurations
     if args.command == "train":
-        config = beagleConfig()
+        config = CustomConfig()
     else:
-        class InferenceConfig(beagleConfig):
+        class InferenceConfig(CustomConfig):
             # Set batch size to 1 since we'll be running inference on
             # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
             GPU_COUNT = 1
