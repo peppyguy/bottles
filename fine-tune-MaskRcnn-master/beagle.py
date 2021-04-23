@@ -80,9 +80,9 @@ class CustomConfig(Config):
 #  Dataset
 ############################################################
 
-class CustomConfig(utils.Dataset):
+class CustomDataset(utils.Dataset):
 
-    def load_beagle(self, dataset_dir, subset):
+    def load_custom(self, dataset_dir, subset):
         """Load a subset of the beagle dataset.
         dataset_dir: Root directory of the dataset.
         subset: Subset to load: train or val
@@ -225,12 +225,12 @@ class CustomConfig(utils.Dataset):
 def train(model):
     """Train the model."""
     # Training dataset.
-    dataset_train = beagleDataset()
+    dataset_train = CustomDataset()
     dataset_train.load_beagle(args.dataset, "train")
     dataset_train.prepare()
 
     # Validation dataset
-    dataset_val = beagleDataset()
+    dataset_val = CustomDataset()
     dataset_val.load_beagle(args.dataset, "val")
     dataset_val.prepare()
 
@@ -241,7 +241,7 @@ def train(model):
     print("Training network heads")
     model.train(dataset_train, dataset_val,
                 learning_rate=config.LEARNING_RATE,
-                epochs=3,
+                epochs=1,
                 layers='heads')
 
 
