@@ -67,7 +67,7 @@ class CustomConfig(Config):
     IMAGES_PER_GPU = 2
 
     # Number of classes (including background)
-    NUM_CLASSES = 1 + 4  # Background + number of classes (Here, 2)
+    NUM_CLASSES = 1 + 9  # Background + number of classes (Here, 2)
 
     # Number of training steps per epoch
     STEPS_PER_EPOCH = 100
@@ -88,17 +88,15 @@ class CustomDataset(utils.Dataset):
         subset: Subset to load: train or val
         """
         # Add classes according to the numbe of classes required to detect
-        #self.add_class("beagle", 1, "object1")
-        #self.add_class("beagle",2,"object2")
         self.add_class("beagle", 1, "1_1_bottle")
         self.add_class("beagle", 2, "1_2_cap")
         self.add_class("beagle", 3, "1_3_cap")
-        #self.add_class("beagle", 4, "2_1_bottle")
-        #self.add_class("beagle", 5, "2_2_cap")
-        #self.add_class("beagle", 6, "2_3_cap")
+        self.add_class("beagle", 4, "2_1_bottle")
+        self.add_class("beagle", 5, "2_2_cap")
+        self.add_class("beagle", 6, "2_3_cap")
         self.add_class("beagle", 7, "3_1_bottle")
-        #self.add_class("beagle", 8, "3_2_cap")
-        #self.add_class("beagle", 9, "3_3_cap")
+        self.add_class("beagle", 8, "3_2_cap")
+        self.add_class("beagle", 9, "3_3_cap")
 
         # Train or validation dataset?
         assert subset in ["train", "val"]
@@ -156,7 +154,7 @@ class CustomDataset(utils.Dataset):
                       num_ids.append(4)
                     elif n['object']=='2_2_cap':
                       num_ids.append(5)
-                    elif n['object']=='2_2_cap':
+                    elif n['object']=='2_3_cap':
                       num_ids.append(6)
                     elif n['object']=='3_1_bottle':
                       num_ids.append(7)
