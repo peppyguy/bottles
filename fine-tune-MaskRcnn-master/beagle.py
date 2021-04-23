@@ -55,7 +55,7 @@ DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
 ############################################################
 
 
-class beagleConfig(Config):
+class CustomConfig(Config):
     """Configuration for training on the beagle dataset.
     Derives from the base Config class and overrides some values.
     """
